@@ -31,6 +31,7 @@ func TestSign(t *testing.T) {
 	})
 
 	t.Run("FlipImage", func(t *testing.T) {
+		s := sign.NewHanoverSign(1, 86, 7, false)
 		img := image.NewGray(image.Rect(0, 0, 86, 7))
 		img.Set(0, 0, color.White)
 		img.Set(85, 6, color.Black)
@@ -42,8 +43,11 @@ func TestSign(t *testing.T) {
 
 		s.Flip = true
 		flippedImg = s.FlipImage(img)
-		if flippedImg.At(85, 6) != color.White || flippedImg.At(0, 0) != color.Black {
-			t.Error("Image not flipped correctly when sign.Flip is true")
+		if flippedImg.At(85, 6) != color.White {
+			t.Error("Top-right pixel should be white after flipping")
+		}
+		if flippedImg.At(0, 0) != color.Black {
+			t.Error("Bottom-left pixel should be black after flipping")
 		}
 	})
 }

@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"image"
-	"image/color"
 	"testing"
 
 	"github.com/harperreed/goflipdot/pkg/goflipdot"
