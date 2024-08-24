@@ -1,11 +1,11 @@
 package test
 
 import (
+	"image"
+	"image/color"
+	"testing"
 
 	"github.com/harperreed/goflipdot/internal/sign"
-
-	"image"
-	"testing"
 )
 
 func TestSign(t *testing.T) {

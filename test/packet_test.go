@@ -2,11 +2,11 @@ package test
 
 import (
 	"bytes"
-	"github.com/harperreed/goflipdot/internal/controller"
-	"github.com/harperreed/goflipdot/internal/sign"
-	"github.com/harperreed/goflipdot/internal/packet"
 	"image"
+	"image/color"
 	"testing"
+
+	"github.com/harperreed/goflipdot/internal/packet"
 )
 
 func TestPackets(t *testing.T) {
