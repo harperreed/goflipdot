@@ -2,9 +2,9 @@ package test
 
 import (
 	"bytes"
-	"github.com/harperreed/goflipdot/internal/controller"
+
 	"github.com/harperreed/goflipdot/internal/sign"
-	"github.com/harperreed/goflipdot/internal/packet"
+
 	"image"
 	"testing"
 )

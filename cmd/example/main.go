@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/harperreed/goflipdot/pkg/goflipdot"
-	"image"
+	"image/color"
 	"log"
 	"os"
+
+	"github.com/harperreed/goflipdot/pkg/goflipdot"
 )
 
 func main() {
@@ -17,11 +18,10 @@ func main() {
 	defer port.Close()
 
 	// Create a controller
-	ctrl := controller.NewHanoverController(port)
+	ctrl := goflipdot.NewController(port)
 
 	// Add a sign
-	s := sign.NewHanoverSign(1, 86, 7, false)
-	if err := ctrl.AddSign("dev", s); err != nil {
+	if err := ctrl.AddSign("dev", 1, 86, 7, false); err != nil {
 		log.Fatal(err)
 	}
 
@@ -39,9 +39,13 @@ func main() {
 	}
 
 	// Create a 'checkerboard' image
-	img := s.CreateImage()
-	for y := 0; y < s.Height; y++ {
-		for x := 0; x < s.Width; x++ {
+	img, err := ctrl.CreateImage("dev")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
 			if (x+y)%2 == 0 {
 				img.Set(x, y, color.White)
 			}

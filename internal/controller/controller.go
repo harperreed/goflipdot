@@ -1,84 +1,85 @@
-package packet
+package controller
 
 import (
-	"encoding/hex"
-	"fmt"
+	"errors"
 	"image"
+	"io"
+
 	"github.com/harperreed/goflipdot/internal/packet"
 	"github.com/harperreed/goflipdot/internal/sign"
 )
 
-const (
-	startByte byte = 0x02
-	endByte   byte = 0x03
-)
-
-// Packet represents a data packet for Hanover signs
-type Packet interface {
-	GetBytes() []byte
+// HanoverController controls one or more Hanover signs
+type HanoverController struct {
+	port  io.Writer
+	signs map[string]*sign.HanoverSign
 }
 
-// TestSignsStartPacket is a command for all signs to cycle through a test mode sequence
-type TestSignsStartPacket struct{}
-
-func (p TestSignsStartPacket) GetBytes() []byte {
-	return []byte{startByte, '3', '0', endByte, '9', 'A'}
-}
-
-// TestSignsStopPacket is a command for all signs to stop test mode sequence
-type TestSignsStopPacket struct{}
-
-func (p TestSignsStopPacket) GetBytes() []byte {
-	return []byte{startByte, 'C', '0', endByte, '8', 'A'}
-}
-
-// ImagePacket encodes an image to display
-type ImagePacket struct {
-	Address int
-	Image   *image.Gray
-}
-
-func (p ImagePacket) GetBytes() []byte {
-	imageBytes := imageToBytes(p.Image)
-	payload := make([]byte, 2+len(imageBytes)*2)
-	payload[0] = byte(len(imageBytes) & 0xFF)
-	payload[1] = byte(len(imageBytes) >> 8)
-	hex.Encode(payload[2:], imageBytes)
-
-	packet := make([]byte, 0, 5+len(payload))
-	packet = append(packet, startByte)
-	packet = append(packet, []byte(fmt.Sprintf("1%X", p.Address))...)
-	packet = append(packet, payload...)
-	packet = append(packet, endByte)
-
-	checksum := calculateChecksum(packet)
-	packet = append(packet, []byte(fmt.Sprintf("%02X", checksum))...)
-
-	return packet
-}
-
-func calculateChecksum(data []byte) byte {
-	var sum byte
-	for _, b := range data[1:] {
-		sum += b
+// NewHanoverController creates a new HanoverController
+func NewHanoverController(port io.Writer) *HanoverController {
+	return &HanoverController{
+		port:  port,
+		signs: make(map[string]*sign.HanoverSign),
 	}
-	return (^sum + 1) & 0xFF
 }
 
-func imageToBytes(img *image.Gray) []byte {
-	bounds := img.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
-	byteWidth := (width + 7) / 8
+// AddSign adds a sign for the controller to communicate with
+func (c *HanoverController) AddSign(name string, sign *sign.HanoverSign) error {
+	if _, exists := c.signs[name]; exists {
+		return errors.New("sign with this name already exists")
+	}
+	c.signs[name] = sign
+	return nil
+}
 
-	result := make([]byte, byteWidth*height)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			if img.GrayAt(x, y).Y > 127 {
-				byteIndex := y*byteWidth + x/8
-				bitIndex := uint(7 - x%8)
-				result[byteIndex] |= 1 << bitIndex
-			}
+// StartTestSigns broadcasts the test signs start command
+func (c *HanoverController) StartTestSigns() error {
+	return c.write(packet.TestSignsStartPacket{})
+}
+
+// StopTestSigns broadcasts the test signs stop command
+func (c *HanoverController) StopTestSigns() error {
+	return c.write(packet.TestSignsStopPacket{})
+}
+
+// DrawImage sends an image to a sign to be displayed
+func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
+	sign, err := c.getSign(signName)
+	if err != nil {
+		return err
+	}
+
+	if err := sign.ValidateImage(img); err != nil {
+		return err
+	}
+
+	flippedImg := sign.FlipImage(img)
+	pkt := packet.ImagePacket{
+		Address: sign.Address,
+		Image:   flippedImg,
+	}
+
+	return c.write(pkt)
+}
+
+// GetSign returns a sign by name
+func (c *HanoverController) GetSign(name string) (*sign.HanoverSign, error) {
+	return c.getSign(name)
+}
+
+func (c *HanoverController) getSign(name string) (*sign.HanoverSign, error) {
+	if name == "" && len(c.signs) == 1 {
+		for _, s := range c.signs {
+			return s, nil
 		}
 	}
-	return result
+	if s, ok := c.signs[name]; ok {
+		return s, nil
+	}
+	return nil, errors.New("sign not found")
+}
+
+func (c *HanoverController) write(pkt packet.Packet) error {
+	_, err := c.port.Write(pkt.GetBytes())
+	return err
 }
