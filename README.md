@@ -10,6 +10,12 @@ The **goflipdot** repository provides an easy-to-use interface for connecting, c
 - Internal packages to handle different aspects of the flipdot communication and control.
 - Unit tests to ensure the reliability and correctness of the code.
 
+## History
+
+This is a port of `pyflipdot` to Go. The original `pyflipdot` project can be found [here](https://github.com/briggySmalls/pyflipdot).
+
+`pyflipdot` was built based off of John Whittington's [blog post](https://engineer.john-whittington.co.uk/2017/11/adventures-flippy-flip-dot-display/) and his node.js driver [node-flipdot](https://github.com/tuna-f1sh/node-flipdot)
+
 ## How to Use 📚
 
 ### Setup
