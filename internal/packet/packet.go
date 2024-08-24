@@ -2,6 +2,7 @@ package packet
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image"
 )
@@ -11,23 +12,27 @@ const (
 	endByte   byte = 0x03
 )
 
+var (
+	ErrInvalidImage = errors.New("invalid image")
+)
+
 // Packet represents a data packet for Hanover signs
 type Packet interface {
-	GetBytes() []byte
+	GetBytes() ([]byte, error)
 }
 
 // TestSignsStartPacket is a command for all signs to cycle through a test mode sequence
 type TestSignsStartPacket struct{}
 
-func (p TestSignsStartPacket) GetBytes() []byte {
-	return []byte{startByte, '3', '0', endByte, '9', 'A'}
+func (p TestSignsStartPacket) GetBytes() ([]byte, error) {
+	return []byte{startByte, '3', '0', endByte, '9', 'A'}, nil
 }
 
 // TestSignsStopPacket is a command for all signs to stop test mode sequence
 type TestSignsStopPacket struct{}
 
-func (p TestSignsStopPacket) GetBytes() []byte {
-	return []byte{startByte, 'C', '0', endByte, '8', 'A'}
+func (p TestSignsStopPacket) GetBytes() ([]byte, error) {
+	return []byte{startByte, 'C', '0', endByte, '8', 'A'}, nil
 }
 
 // ImagePacket encodes an image to display
@@ -36,8 +41,16 @@ type ImagePacket struct {
 	Image   *image.Gray
 }
 
-func (p ImagePacket) GetBytes() []byte {
-	imageBytes := imageToBytes(p.Image)
+func (p ImagePacket) GetBytes() ([]byte, error) {
+	if p.Image == nil {
+		return nil, ErrInvalidImage
+	}
+
+	imageBytes, err := imageToBytes(p.Image)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert image to bytes: %w", err)
+	}
+
 	payload := make([]byte, 2+len(imageBytes)*2)
 	payload[0] = byte(len(imageBytes) & 0xFF)
 	payload[1] = byte(len(imageBytes) >> 8)
@@ -52,7 +65,7 @@ func (p ImagePacket) GetBytes() []byte {
 	checksum := calculateChecksum(packet)
 	packet = append(packet, []byte(fmt.Sprintf("%02X", checksum))...)
 
-	return packet
+	return packet, nil
 }
 
 func calculateChecksum(data []byte) byte {
@@ -63,7 +76,11 @@ func calculateChecksum(data []byte) byte {
 	return (^sum + 1) & 0xFF
 }
 
-func imageToBytes(img *image.Gray) []byte {
+func imageToBytes(img *image.Gray) ([]byte, error) {
+	if img == nil {
+		return nil, ErrInvalidImage
+	}
+
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	byteWidth := (width + 7) / 8
@@ -78,5 +95,5 @@ func imageToBytes(img *image.Gray) []byte {
 			}
 		}
 	}
-	return result
+	return result, nil
 }

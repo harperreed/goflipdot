@@ -18,7 +18,10 @@ func main() {
 	defer port.Close()
 
 	// Create a controller
-	ctrl := goflipdot.NewController(port)
+	ctrl, err := goflipdot.NewController(port)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Add a sign
 	if err := ctrl.AddSign("dev", 1, 86, 7, false); err != nil {

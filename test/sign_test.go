@@ -9,7 +9,10 @@ import (
 )
 
 func TestSign(t *testing.T) {
-	s := sign.NewHanoverSign(1, 86, 7, false)
+	s, err := sign.NewHanoverSign(1, 86, 7, false)
+	if err != nil {
+		t.Fatalf("Failed to create sign: %v", err)
+	}
 
 	t.Run("CreateImage", func(t *testing.T) {
 		img := s.CreateImage()
@@ -31,22 +34,25 @@ func TestSign(t *testing.T) {
 	})
 
 	t.Run("FlipImage", func(t *testing.T) {
-		s := sign.NewHanoverSign(1, 86, 7, false)
+		s, err := sign.NewHanoverSign(1, 86, 7, false)
+		if err != nil {
+			t.Fatalf("Failed to create sign: %v", err)
+		}
 		img := image.NewGray(image.Rect(0, 0, 86, 7))
 		img.Set(0, 0, color.White)
 		img.Set(85, 6, color.Black)
 
 		flippedImg := s.FlipImage(img)
-		if flippedImg.At(0, 0) != img.At(0, 0) {
+		if flippedImg.At(0, 0).(color.Gray).Y != 255 {
 			t.Error("Image should not be flipped when sign.Flip is false")
 		}
 
 		s.Flip = true
 		flippedImg = s.FlipImage(img)
-		if flippedImg.At(85, 6) != color.White {
+		if flippedImg.At(85, 6).(color.Gray).Y != 255 {
 			t.Error("Top-right pixel should be white after flipping")
 		}
-		if flippedImg.At(0, 0) != color.Black {
+		if flippedImg.At(0, 0).(color.Gray).Y != 0 {
 			t.Error("Bottom-left pixel should be black after flipping")
 		}
 	})

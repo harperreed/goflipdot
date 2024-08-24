@@ -10,7 +10,10 @@ import (
 
 func TestController(t *testing.T) {
 	buf := new(bytes.Buffer)
-	ctrl := goflipdot.NewController(buf)
+	ctrl, err := goflipdot.NewController(buf)
+	if err != nil {
+		t.Fatalf("Failed to create controller: %v", err)
+	}
 
 	t.Run("AddSign", func(t *testing.T) {
 		err := ctrl.AddSign("test", 1, 86, 7, false)

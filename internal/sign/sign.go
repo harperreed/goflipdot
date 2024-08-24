@@ -2,7 +2,12 @@ package sign
 
 import (
 	"errors"
+	"fmt"
 	"image"
+)
+
+var (
+	ErrInvalidDimensions = errors.New("image dimensions do not match sign dimensions")
 )
 
 // HanoverSign represents a Hanover flipdot sign
@@ -14,13 +19,19 @@ type HanoverSign struct {
 }
 
 // NewHanoverSign creates a new HanoverSign
-func NewHanoverSign(address, width, height int, flip bool) *HanoverSign {
+func NewHanoverSign(address, width, height int, flip bool) (*HanoverSign, error) {
+	if width <= 0 || height <= 0 {
+		return nil, errors.New("width and height must be positive")
+	}
+	if address < 0 {
+		return nil, errors.New("address must be non-negative")
+	}
 	return &HanoverSign{
 		Address: address,
 		Width:   width,
 		Height:  height,
 		Flip:    flip,
-	}
+	}, nil
 }
 
 // CreateImage creates a blank image for the sign
@@ -30,15 +41,22 @@ func (s *HanoverSign) CreateImage() *image.Gray {
 
 // ValidateImage checks if the given image is compatible with the sign
 func (s *HanoverSign) ValidateImage(img *image.Gray) error {
+	if img == nil {
+		return errors.New("image cannot be nil")
+	}
 	bounds := img.Bounds()
 	if bounds.Dx() != s.Width || bounds.Dy() != s.Height {
-		return errors.New("image dimensions do not match sign dimensions")
+		return fmt.Errorf("%w: expected %dx%d, got %dx%d",
+			ErrInvalidDimensions, s.Width, s.Height, bounds.Dx(), bounds.Dy())
 	}
 	return nil
 }
 
 // FlipImage rotates the image 180 degrees if the sign is flipped
 func (s *HanoverSign) FlipImage(img *image.Gray) *image.Gray {
+	if img == nil {
+		return nil
+	}
 	if !s.Flip {
 		return img
 	}
