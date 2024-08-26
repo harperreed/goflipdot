@@ -71,11 +71,11 @@ func main() {
 	}
 	time.Sleep(5 * time.Second)
 
-	// Alternating columns
-	log.Println("Setting alternating columns")
+	// Single column on
+	log.Println("Setting single column on")
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
-			if x%2 == 0 {
+			if x == 0 {
 				img.Set(x, y, color.White)
 			} else {
 				img.Set(x, y, color.Black)
@@ -83,7 +83,7 @@ func main() {
 		}
 	}
 	if err := ctrl.DrawImage(img, "dev"); err != nil {
-		log.Printf("Error drawing alternating columns: %v", err)
+		log.Printf("Error drawing single column: %v", err)
 	}
 	time.Sleep(5 * time.Second)
 

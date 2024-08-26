@@ -58,7 +58,6 @@ func (c *HanoverController) StopTestSigns() error {
 	return c.writeAndRead(packet.TestSignsStopPacket{})
 }
 
-// DrawImage sends an image to a sign to be displayed
 func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
 	if img == nil {
 		return errors.New("image cannot be nil")
@@ -73,6 +72,22 @@ func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
 	}
 
 	flippedImg := sign.FlipImage(img)
+
+	// Log image data
+	bounds := flippedImg.Bounds()
+	log.Printf("Image dimensions: %dx%d", bounds.Dx(), bounds.Dy())
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		row := make([]byte, bounds.Dx())
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if flippedImg.GrayAt(x, y).Y > 127 {
+				row[x] = '1'
+			} else {
+				row[x] = '0'
+			}
+		}
+		log.Printf("Row %d: %s", y, string(row))
+	}
+
 	pkt := packet.ImagePacket{
 		Address: sign.Address,
 		Image:   flippedImg,
