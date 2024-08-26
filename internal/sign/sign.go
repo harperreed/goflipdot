@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"image"
+
+	"github.com/harperreed/goflipdot/internal/packet"
 )
 
 var (
 	ErrInvalidDimensions = errors.New("image dimensions do not match sign dimensions")
 )
 
-// HanoverSign represents a Hanover flipdot sign
 type HanoverSign struct {
 	Address int
 	Width   int
@@ -18,7 +19,6 @@ type HanoverSign struct {
 	Flip    bool
 }
 
-// NewHanoverSign creates a new HanoverSign
 func NewHanoverSign(address, width, height int, flip bool) (*HanoverSign, error) {
 	if width <= 0 || height <= 0 {
 		return nil, errors.New("width and height must be positive")
@@ -34,12 +34,10 @@ func NewHanoverSign(address, width, height int, flip bool) (*HanoverSign, error)
 	}, nil
 }
 
-// CreateImage creates a blank image for the sign
 func (s *HanoverSign) CreateImage() *image.Gray {
 	return image.NewGray(image.Rect(0, 0, s.Width, s.Height))
 }
 
-// ValidateImage checks if the given image is compatible with the sign
 func (s *HanoverSign) ValidateImage(img *image.Gray) error {
 	if img == nil {
 		return errors.New("image cannot be nil")
@@ -52,7 +50,6 @@ func (s *HanoverSign) ValidateImage(img *image.Gray) error {
 	return nil
 }
 
-// FlipImage rotates the image 180 degrees if the sign is flipped
 func (s *HanoverSign) FlipImage(img *image.Gray) *image.Gray {
 	if img == nil {
 		return nil
@@ -68,4 +65,15 @@ func (s *HanoverSign) FlipImage(img *image.Gray) *image.Gray {
 		}
 	}
 	return flipped
+}
+
+func (s *HanoverSign) ToImagePacket(img *image.Gray) (*packet.ImagePacket, error) {
+	if err := s.ValidateImage(img); err != nil {
+		return nil, err
+	}
+	flippedImg := s.FlipImage(img)
+	return &packet.ImagePacket{
+		Address: s.Address,
+		Image:   flippedImg,
+	}, nil
 }

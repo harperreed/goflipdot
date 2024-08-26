@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"log"
+	"time"
 
+	"github.com/tarm/serial"
+	"github.com/harperreed/goflipdot/internal"
 	"github.com/harperreed/goflipdot/internal/packet"
 	"github.com/harperreed/goflipdot/internal/sign"
 )
@@ -16,16 +20,23 @@ var (
 	ErrInvalidImage      = errors.New("invalid image for sign")
 )
 
-// HanoverController controls one or more Hanover signs
 type HanoverController struct {
-	port  io.Writer
+	port  *serial.Port
 	signs map[string]*sign.HanoverSign
 }
 
-// NewHanoverController creates a new HanoverController
-func NewHanoverController(port io.Writer) (*HanoverController, error) {
-	if port == nil {
-		return nil, errors.New("port cannot be nil")
+func NewHanoverController(portName string) (*HanoverController, error) {
+	config := &serial.Config{
+		Name:        portName,
+		Baud:        internal.BaudRate,
+		ReadTimeout: time.Second * 5, // 5 second timeout, adjust as needed
+		Size:        8,
+		Parity:      serial.ParityNone,
+		StopBits:    serial.Stop1,
+	}
+	port, err := serial.OpenPort(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open serial port: %w", err)
 	}
 	return &HanoverController{
 		port:  port,
@@ -33,7 +44,7 @@ func NewHanoverController(port io.Writer) (*HanoverController, error) {
 	}, nil
 }
 
-// AddSign adds a sign for the controller to communicate with
+
 func (c *HanoverController) AddSign(name string, sign *sign.HanoverSign) error {
 	if sign == nil {
 		return errors.New("sign cannot be nil")
@@ -45,17 +56,14 @@ func (c *HanoverController) AddSign(name string, sign *sign.HanoverSign) error {
 	return nil
 }
 
-// StartTestSigns broadcasts the test signs start command
 func (c *HanoverController) StartTestSigns() error {
 	return c.write(packet.TestSignsStartPacket{})
 }
 
-// StopTestSigns broadcasts the test signs stop command
 func (c *HanoverController) StopTestSigns() error {
 	return c.write(packet.TestSignsStopPacket{})
 }
 
-// DrawImage sends an image to a sign to be displayed
 func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
 	if img == nil {
 		return errors.New("image cannot be nil")
@@ -65,20 +73,16 @@ func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
 		return err
 	}
 
-	if err := sign.ValidateImage(img); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidImage, err)
-	}
+	log.Printf("Drawing image for sign %s: %dx%d", signName, img.Bounds().Dx(), img.Bounds().Dy())
 
-	flippedImg := sign.FlipImage(img)
-	pkt := packet.ImagePacket{
-		Address: sign.Address,
-		Image:   flippedImg,
+	pkt, err := sign.ToImagePacket(img)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidImage, err)
 	}
 
 	return c.write(pkt)
 }
 
-// GetSign returns a sign by name
 func (c *HanoverController) GetSign(name string) (*sign.HanoverSign, error) {
 	return c.getSign(name)
 }
@@ -100,6 +104,7 @@ func (c *HanoverController) write(pkt packet.Packet) error {
 	if err != nil {
 		return fmt.Errorf("failed to get packet bytes: %w", err)
 	}
+	log.Printf("Writing packet: %v", bytes)
 	_, err = c.port.Write(bytes)
 	if err != nil {
 		return fmt.Errorf("failed to write packet: %w", err)

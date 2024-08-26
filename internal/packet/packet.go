@@ -1,41 +1,33 @@
 package packet
 
 import (
-	"encoding/hex"
+	"encoding/binary"
 	"errors"
-	"fmt"
 	"image"
-)
 
-const (
-	startByte byte = 0x02
-	endByte   byte = 0x03
+	"github.com/harperreed/goflipdot/internal"
 )
 
 var (
 	ErrInvalidImage = errors.New("invalid image")
 )
 
-// Packet represents a data packet for Hanover signs
 type Packet interface {
 	GetBytes() ([]byte, error)
 }
 
-// TestSignsStartPacket is a command for all signs to cycle through a test mode sequence
 type TestSignsStartPacket struct{}
 
 func (p TestSignsStartPacket) GetBytes() ([]byte, error) {
-	return []byte{startByte, '3', '0', endByte, '9', 'A'}, nil
+	return internal.FormatPacket(internal.CommandCodes["start_test_signs"], 0, nil), nil
 }
 
-// TestSignsStopPacket is a command for all signs to stop test mode sequence
 type TestSignsStopPacket struct{}
 
 func (p TestSignsStopPacket) GetBytes() ([]byte, error) {
-	return []byte{startByte, 'C', '0', endByte, '8', 'A'}, nil
+	return internal.FormatPacket(internal.CommandCodes["stop_test_signs"], 0, nil), nil
 }
 
-// ImagePacket encodes an image to display
 type ImagePacket struct {
 	Address int
 	Image   *image.Gray
@@ -48,32 +40,14 @@ func (p ImagePacket) GetBytes() ([]byte, error) {
 
 	imageBytes, err := imageToBytes(p.Image)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert image to bytes: %w", err)
+		return nil, err
 	}
 
 	payload := make([]byte, 2+len(imageBytes)*2)
-	payload[0] = byte(len(imageBytes) & 0xFF)
-	payload[1] = byte(len(imageBytes) >> 8)
-	hex.Encode(payload[2:], imageBytes)
+	binary.BigEndian.PutUint16(payload[:2], uint16(len(imageBytes)))
+	internal.ToAsciiHex(imageBytes)
 
-	packet := make([]byte, 0, 5+len(payload))
-	packet = append(packet, startByte)
-	packet = append(packet, []byte(fmt.Sprintf("1%X", p.Address))...)
-	packet = append(packet, payload...)
-	packet = append(packet, endByte)
-
-	checksum := calculateChecksum(packet)
-	packet = append(packet, []byte(fmt.Sprintf("%02X", checksum))...)
-
-	return packet, nil
-}
-
-func calculateChecksum(data []byte) byte {
-	var sum byte
-	for _, b := range data[1:] {
-		sum += b
-	}
-	return (^sum + 1) & 0xFF
+	return internal.FormatPacket(internal.CommandCodes["write_image"], byte(p.Address), payload), nil
 }
 
 func imageToBytes(img *image.Gray) ([]byte, error) {
@@ -84,14 +58,17 @@ func imageToBytes(img *image.Gray) ([]byte, error) {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	byteWidth := (width + 7) / 8
+	paddedHeight := internal.ClosestLargerMultiple(height, 8)
 
-	result := make([]byte, byteWidth*height)
+	result := make([]byte, byteWidth*paddedHeight/8)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			if img.GrayAt(x, y).Y > 127 {
-				byteIndex := y*byteWidth + x/8
+				byteIndex := (paddedHeight - y - 1) / 8 * byteWidth + x/8
 				bitIndex := uint(7 - x%8)
-				result[byteIndex] |= 1 << bitIndex
+				if byteIndex < len(result) {
+					result[byteIndex] |= 1 << bitIndex
+				}
 			}
 		}
 	}
