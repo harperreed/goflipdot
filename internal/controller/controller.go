@@ -8,7 +8,7 @@ import (
 	"io"
 	"log"
 	"time"
-
+	"github.com/tarm/serial"
 	"github.com/harperreed/goflipdot/internal/packet"
 	"github.com/harperreed/goflipdot/internal/sign"
 )
@@ -26,9 +26,11 @@ type HanoverController struct {
 }
 
 // NewHanoverController creates a new HanoverController
-func NewHanoverController(port io.ReadWriter) (*HanoverController, error) {
-	if port == nil {
-		return nil, errors.New("port cannot be nil")
+func NewHanoverController(serialPort string) (*HanoverController, error) {
+	c := &serial.Config{Name: serialPort, Baud: 4800}
+	port, err := serial.OpenPort(c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open serial port: %w", err)
 	}
 	return &HanoverController{
 		port:  port,
@@ -38,15 +40,13 @@ func NewHanoverController(port io.ReadWriter) (*HanoverController, error) {
 
 // AddSign adds a sign for the controller to communicate with
 func (c *HanoverController) AddSign(name string, sign *sign.HanoverSign) error {
-	if sign == nil {
-		return errors.New("sign cannot be nil")
-	}
 	if _, exists := c.signs[name]; exists {
-		return fmt.Errorf("%w: %s", ErrSignAlreadyExists, name)
+		return errors.New("sign with this name already exists")
 	}
 	c.signs[name] = sign
 	return nil
 }
+
 
 // StartTestSigns broadcasts the test signs start command
 func (c *HanoverController) StartTestSigns() error {
@@ -59,41 +59,32 @@ func (c *HanoverController) StopTestSigns() error {
 }
 
 func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
-	if img == nil {
-		return errors.New("image cannot be nil")
-	}
-	sign, err := c.getSign(signName)
-	if err != nil {
-		return err
+	sign, ok := c.signs[signName]
+	if !ok {
+		return errors.New("sign not found")
 	}
 
 	if err := sign.ValidateImage(img); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidImage, err)
-	}
-
-	flippedImg := sign.FlipImage(img)
-
-	// Log image data
-	bounds := flippedImg.Bounds()
-	log.Printf("Image dimensions: %dx%d", bounds.Dx(), bounds.Dy())
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		row := make([]byte, bounds.Dx())
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			if flippedImg.GrayAt(x, y).Y > 127 {
-				row[x] = '1'
-			} else {
-				row[x] = '0'
-			}
-		}
-		log.Printf("Row %d: %s", y, string(row))
+		return fmt.Errorf("invalid image: %w", err)
 	}
 
 	pkt := packet.ImagePacket{
 		Address: sign.Address,
-		Image:   flippedImg,
+		Image:   img,
 	}
 
-	return c.writeAndRead(pkt)
+	bytes, err := pkt.GetBytes()
+	if err != nil {
+		return fmt.Errorf("failed to get packet bytes: %w", err)
+	}
+
+	log.Printf("Sending packet: %X", bytes)
+	_, err = c.port.Write(bytes)
+	if err != nil {
+		return fmt.Errorf("failed to write packet: %w", err)
+	}
+
+	return nil
 }
 
 // GetSign returns a sign by name

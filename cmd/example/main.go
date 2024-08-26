@@ -6,87 +6,43 @@ import (
 	"log"
 	"time"
 
-	"github.com/harperreed/goflipdot/pkg/goflipdot"
-	"github.com/tarm/serial"
+	"github.com/harperreed/goflipdot/internal/controller"
+	"github.com/harperreed/goflipdot/internal/sign"
 )
 
 func main() {
-	config := &serial.Config{
-		Name:     "/dev/ttyUSB0",
-		Baud:     4800,
-		Size:     8,
-		Parity:   serial.ParityNone,
-		StopBits: serial.Stop1,
-	}
-	port, err := serial.OpenPort(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer port.Close()
-
-	ctrl, err := goflipdot.NewController(port)
+	serialPort := "/dev/ttyUSB0" // Update this to match your system
+	ctrl, err := controller.NewHanoverController(serialPort)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := ctrl.AddSign("dev", 1, 86, 7, false); err != nil {
+	sign, err := sign.NewHanoverSign(1, 96, 16) // Update dimensions to match your sign
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Test sequence
-	log.Println("Starting test sequence")
-	if err := ctrl.StartTestSigns(); err != nil {
+	if err := ctrl.AddSign("dev", sign); err != nil {
 		log.Fatal(err)
 	}
-	time.Sleep(10 * time.Second)
 
-	log.Println("Stopping test sequence")
-	if err := ctrl.StopTestSigns(); err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// All pixels on
-	log.Println("Setting all pixels on")
-	img, _ := ctrl.CreateImage("dev")
+	// Create a test image
+	img := sign.CreateImage()
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
-			img.Set(x, y, color.White)
-		}
-	}
-	if err := ctrl.DrawImage(img, "dev"); err != nil {
-		log.Printf("Error drawing all-on image: %v", err)
-	}
-	time.Sleep(5 * time.Second)
-
-	// All pixels off
-	log.Println("Setting all pixels off")
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			img.Set(x, y, color.Black)
-		}
-	}
-	if err := ctrl.DrawImage(img, "dev"); err != nil {
-		log.Printf("Error drawing all-off image: %v", err)
-	}
-	time.Sleep(5 * time.Second)
-
-	// Single column on
-	log.Println("Setting single column on")
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			if x == 0 {
+			if (x+y)%2 == 0 {
 				img.Set(x, y, color.White)
 			} else {
 				img.Set(x, y, color.Black)
 			}
 		}
 	}
-	if err := ctrl.DrawImage(img, "dev"); err != nil {
-		log.Printf("Error drawing single column: %v", err)
-	}
-	time.Sleep(5 * time.Second)
 
-	log.Println("Program completed. Press Enter to exit...")
-	fmt.Scanln()
+	// Draw the image
+	if err := ctrl.DrawImage(img, "dev"); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Image sent to flipdot display. Press Enter to exit...")
+	time.Sleep(5 * time.Second)
 }
