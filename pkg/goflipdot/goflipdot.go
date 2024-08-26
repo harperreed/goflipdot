@@ -15,7 +15,7 @@ type Controller struct {
 }
 
 // NewController creates a new Controller
-func NewController(port io.Writer) (*Controller, error) {
+func NewController(port io.ReadWriter) (*Controller, error) {
 	ctrl, err := controller.NewHanoverController(port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create controller: %w", err)

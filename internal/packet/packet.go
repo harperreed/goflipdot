@@ -51,10 +51,12 @@ func (p ImagePacket) GetBytes() ([]byte, error) {
 		return nil, fmt.Errorf("failed to convert image to bytes: %w", err)
 	}
 
-	payload := make([]byte, 2+len(imageBytes)*2)
+	payload := make([]byte, 3+len(imageBytes)*2)
 	payload[0] = byte(len(imageBytes) & 0xFF)
 	payload[1] = byte(len(imageBytes) >> 8)
-	hex.Encode(payload[2:], imageBytes)
+	payload[2] = byte(p.Image.Bounds().Dy()) // Add resolution byte
+
+	hex.Encode(payload[3:], imageBytes)
 
 	packet := make([]byte, 0, 5+len(payload))
 	packet = append(packet, startByte)
@@ -69,11 +71,13 @@ func (p ImagePacket) GetBytes() ([]byte, error) {
 }
 
 func calculateChecksum(data []byte) byte {
-	var sum byte
-	for _, b := range data[1:] {
-		sum += b
+	var sum int
+	for _, b := range data[1 : len(data)-1] { // Exclude start byte and end byte
+		sum += int(b)
 	}
-	return (^sum + 1) & 0xFF
+	sum += int(endByte) // Add end byte to sum
+	sum = sum & 0xFF    // Truncate to 8 bits
+	return byte((sum ^ 0xFF) + 1)
 }
 
 func imageToBytes(img *image.Gray) ([]byte, error) {
@@ -95,5 +99,13 @@ func imageToBytes(img *image.Gray) ([]byte, error) {
 			}
 		}
 	}
+
+	// Flip the byte order within each column
+	for col := 0; col < byteWidth; col++ {
+		for i := 0; i < height/2; i++ {
+			result[col*height+i], result[col*height+(height-1-i)] = result[col*height+(height-1-i)], result[col*height+i]
+		}
+	}
+
 	return result, nil
 }
