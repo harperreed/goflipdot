@@ -43,6 +43,7 @@ func main() {
 		"All pixels on",
 		"Alternating columns",
 		"Large 'X'",
+		"Clear",
 	}
 
 	if *patternNum >= 0 && *patternNum < len(patternNames) {

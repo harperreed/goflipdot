@@ -59,32 +59,31 @@ func (c *HanoverController) StopTestSigns() error {
 }
 
 func (c *HanoverController) DrawImage(img *image.Gray, signName string) error {
-	sign, ok := c.signs[signName]
-	if !ok {
-		return errors.New("sign not found")
-	}
+    sign, ok := c.signs[signName]
+    if !ok {
+        return ErrSignNotFound
+    }
 
-	if err := sign.ValidateImage(img); err != nil {
-		return fmt.Errorf("invalid image: %w", err)
-	}
+    if err := sign.ValidateImage(img); err != nil {
+        return fmt.Errorf("invalid image: %w", err)
+    }
 
-	pkt := packet.ImagePacket{
-		Address: sign.Address,
-		Image:   img,
-	}
+    pkt := packet.ImagePacket{
+        Address: sign.Address,
+        Image:   img,
+    }
 
-	bytes, err := pkt.GetBytes()
-	if err != nil {
-		return fmt.Errorf("failed to get packet bytes: %w", err)
-	}
+    bytes, err := pkt.GetBytes()
+    if err != nil {
+        return fmt.Errorf("failed to get packet bytes: %w", err)
+    }
 
-	log.Printf("Sending packet: %X", bytes)
-	_, err = c.port.Write(bytes)
-	if err != nil {
-		return fmt.Errorf("failed to write packet: %w", err)
-	}
+    _, err = c.port.Write(bytes)
+    if err != nil {
+        return fmt.Errorf("failed to write packet: %w", err)
+    }
 
-	return nil
+    return nil
 }
 
 // GetSign returns a sign by name

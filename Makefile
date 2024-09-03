@@ -10,7 +10,7 @@ cli:
 	GOARCH=arm GOARM=7 GOOS=linux go build -o flipdot-cli cmd/flipdot-cli/main.go
 
 example:
-	GOARCH=arm GOARM=7 GOOS=linux go build -o flipdot-example cmd/example/main.go
+	GOARCH=arm GOARM=7 GOOS=linux go build -o flipdot-example cmd/example/main.go cmd/example/patterns.go
 
 
 

@@ -42,76 +42,64 @@ type ImagePacket struct {
 }
 
 func (p ImagePacket) GetBytes() ([]byte, error) {
-	if p.Image == nil {
-		return nil, ErrInvalidImage
-	}
+    if p.Image == nil {
+        return nil, ErrInvalidImage
+    }
 
-	imageBytes, err := imageToBytes(p.Image)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert image to bytes: %w", err)
-	}
+    bounds := p.Image.Bounds()
+    width, height := bounds.Dx(), bounds.Dy()
+    resolution := (width * height) / 8
+    resolutionStr := fmt.Sprintf("%02X", resolution)
 
-	payload := make([]byte, 3+len(imageBytes)*2)
-	payload[0] = byte(p.Image.Bounds().Dx() & 0xFF)
-	payload[1] = byte(p.Image.Bounds().Dx() >> 8)
-	payload[2] = byte(p.Image.Bounds().Dy() & 0xFF)
-	payload[3] = byte(p.Image.Bounds().Dy() >> 8)
+    imageBytes, err := imageToBytes(p.Image)
+    if err != nil {
+        return nil, fmt.Errorf("failed to convert image to bytes: %w", err)
+    }
 
-	width := fmt.Sprintf("%04d", p.Image.Bounds().Dx())
-	height := fmt.Sprintf("%04d", p.Image.Bounds().Dy())
-	copy(payload[0:4], width)
-	copy(payload[4:8], height)
+    packet := make([]byte, 0, 5+len(imageBytes)*2+3)
+    packet = append(packet, startByte)
+    packet = append(packet, '1')
+    packet = append(packet, byte(p.Address+'0'))
+    packet = append(packet, []byte(resolutionStr)...)
 
-	hex.Encode(payload[3:], imageBytes)
+    encodedImageBytes := make([]byte, len(imageBytes)*2)
+    hex.Encode(encodedImageBytes, imageBytes)
+    packet = append(packet, encodedImageBytes...)
 
-	packet := make([]byte, 0, 5+len(payload))
-	packet = append(packet, startByte)
-	packet = append(packet, []byte(fmt.Sprintf("1%X", p.Address))...)
-	packet = append(packet, payload...)
-	packet = append(packet, endByte)
+    packet = append(packet, endByte)
 
-	checksum := calculateChecksum(packet)
-	packet = append(packet, []byte(fmt.Sprintf("%02X", checksum))...)
+    checksum := calculateChecksum(packet)
+    checksumStr := fmt.Sprintf("%02X", checksum)
+    packet = append(packet, []byte(checksumStr)...)
 
-	return packet, nil
+    return packet, nil
 }
 
 func calculateChecksum(data []byte) byte {
-	var sum int
-	for _, b := range data[1 : len(data)-1] { // Exclude start byte and end byte
-		sum += int(b)
-	}
-	sum += int(endByte) // Add end byte to sum
-	sum = sum & 0xFF    // Truncate to 8 bits
-	return byte((sum ^ 0xFF) + 1)
+    var sum int
+    for _, b := range data {
+        sum += int(b)
+    }
+    sum -= int(startByte)
+    sum = sum & 0xFF
+    return byte((sum ^ 0xFF) + 1)
 }
 
 func imageToBytes(img *image.Gray) ([]byte, error) {
-	if img == nil {
-		return nil, ErrInvalidImage
-	}
+    bounds := img.Bounds()
+    width, height := bounds.Dx(), bounds.Dy()
+    bytesPerColumn := (height + 7) / 8
+    result := make([]byte, width*bytesPerColumn)
 
-	bounds := img.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
-	byteWidth := (width + 7) / 8
+    for x := 0; x < width; x++ {
+        for y := 0; y < height; y++ {
+            if img.GrayAt(x, height-1-y).Y > 127 { // Flip vertically
+                byteIndex := x*bytesPerColumn + (y / 8)
+                bitIndex := uint(y % 8)
+                result[byteIndex] |= 1 << bitIndex
+            }
+        }
+    }
 
-	result := make([]byte, byteWidth*height)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			if img.GrayAt(x, y).Y > 127 {
-				byteIndex := y*byteWidth + x/8
-				bitIndex := uint(7 - x%8)
-				result[byteIndex] |= 1 << bitIndex
-			}
-		}
-	}
-
-	// Flip the byte order within each column
-	for col := 0; col < byteWidth; col++ {
-		for i := 0; i < height/2; i++ {
-			result[col*height+i], result[col*height+(height-1-i)] = result[col*height+(height-1-i)], result[col*height+i]
-		}
-	}
-
-	return result, nil
+    return result, nil
 }
