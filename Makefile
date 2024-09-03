@@ -22,7 +22,7 @@ clean:
 	rm -f goflipdot
 
 run-example:
-	go run cmd/example/main.go
+	go run cmd/example/main.go cmd/example/patterns.go $(ARGS)
 
 run-cli:
 	go run cmd/flipdot-cli/main.go

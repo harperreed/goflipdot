@@ -1,62 +1,107 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"image/color"
+	"image"
 	"log"
+	"os"
 	"time"
 
-	"github.com/harperreed/goflipdot/internal/controller"
-	"github.com/harperreed/goflipdot/internal/sign"
+	"github.com/harperreed/goflipdot/pkg/goflipdot"
+)
+
+const (
+	signAddress = 1
+	signColumns = 96
+	signRows    = 16
 )
 
 func main() {
-	serialPort := "/dev/pts/7" // Update this to match your system
-	log.Printf("Initializing Hanover Controller with serial port: %s", serialPort)
-	ctrl, err := controller.NewHanoverController(serialPort)
+	serialPort := flag.String("port", "/dev/pts/7", "Serial port for the flipdot display")
+	patternNum := flag.Int("pattern", -1, "Pattern number to display (0-5), or -1 for all patterns")
+	flag.Parse()
+
+	if *serialPort == "" {
+		log.Fatal("Serial port must be specified")
+	}
+
+	ctrl, err := goflipdot.NewController(*serialPort)
 	if err != nil {
-		log.Fatalf("Failed to create Hanover Controller: %v", err)
+		log.Fatal(err)
 	}
-	log.Println("Hanover Controller created successfully")
 
-	log.Println("Creating new Hanover Sign")
-	sign, err := sign.NewHanoverSign(1, 96, 16) // Update dimensions to match your sign
+	if err := ctrl.AddSign("dev", signAddress, signColumns, signRows); err != nil {
+		log.Fatal(err)
+	}
+
+	patterns := GetPatterns()
+	patternNames := []string{
+		"1s at row edges",
+		"1s on borders",
+		"Checkerboard",
+		"All pixels on",
+		"Alternating columns",
+		"Large 'X'",
+	}
+
+	if *patternNum >= 0 && *patternNum < len(patternNames) {
+		// Display only the specified pattern
+		name := patternNames[*patternNum]
+		patternFunc := patterns[name]
+		displayPattern(ctrl, name, patternFunc)
+	} else if *patternNum == -1 {
+		// Display all patterns
+		for _, name := range patternNames {
+			patternFunc := patterns[name]
+			displayPattern(ctrl, name, patternFunc)
+			time.Sleep(2 * time.Second)
+		}
+	} else {
+		fmt.Println("Invalid pattern number. Use -1 for all patterns or 0-5 for a specific pattern.")
+		os.Exit(1)
+	}
+
+	fmt.Println("Test sequence completed.")
+}
+
+func displayPattern(ctrl *goflipdot.Controller, name string, patternFunc Pattern) {
+	img := patternFunc(signColumns, signRows)
+	printArrayInfo(img, name)
+	err := ctrl.DrawImage(img, "dev")
 	if err != nil {
-		log.Fatalf("Failed to create Hanover Sign: %v", err)
+		log.Printf("Failed to draw image: %v", err)
 	}
-	log.Printf("Hanover Sign created with dimensions: 96x16")
+}
 
-	log.Println("Adding sign to controller")
-	if err := ctrl.AddSign("dev", sign); err != nil {
-		log.Fatalf("Failed to add sign to controller: %v", err)
+func printArrayInfo(img *image.Gray, name string) {
+	fmt.Printf("\n%s:\n", name)
+	fmt.Printf("Shape: %dx%d\n", img.Bounds().Dx(), img.Bounds().Dy())
+	fmt.Print("First row: ")
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		if img.GrayAt(x, 0).Y > 0 {
+			fmt.Print("1 ")
+		} else {
+			fmt.Print("0 ")
+		}
 	}
-	log.Println("Sign added successfully")
-
-	// Create a test image
-	log.Println("Creating test image")
-	img := sign.CreateImage()
+	fmt.Println()
+	fmt.Print("Last row: ")
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		if img.GrayAt(x, img.Bounds().Dy()-1).Y > 0 {
+			fmt.Print("1 ")
+		} else {
+			fmt.Print("0 ")
+		}
+	}
+	fmt.Println()
+	sum := 0
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
-			if (x+y)%2 == 0 {
-				img.Set(x, y, color.White)
-				log.Printf("Set pixel at (%d, %d) to White", x, y)
-			} else {
-				img.Set(x, y, color.Black)
-				log.Printf("Set pixel at (%d, %d) to Black", x, y)
+			if img.GrayAt(x, y).Y > 0 {
+				sum++
 			}
 		}
 	}
-	log.Println("Test image created successfully")
-
-	// Draw the image
-	log.Println("Sending image to flipdot display")
-	if err := ctrl.DrawImage(img, "dev"); err != nil {
-		log.Fatalf("Failed to draw image: %v", err)
-	}
-	log.Println("Image sent successfully")
-
-	fmt.Println("Image sent to flipdot display. Press Enter to exit...")
-	log.Println("Waiting for 5 seconds before exit")
-	time.Sleep(5 * time.Second)
-	log.Println("Exiting program")
+	fmt.Printf("Sum of elements: %d\n", sum)
 }
