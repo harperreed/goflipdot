@@ -54,6 +54,16 @@ This will start the test sequence on the connected flipdot sign and draw a check
   - `pkg`: Provides the main public interface for controlling flipdot signs.
   - `test`: Includes unit tests for the different components.
 
+  ## Testing
+
+  While unit tests are provided in the `test/` directory, it's crucial to test the library with actual Hanover flipdot hardware to ensure proper functionality. The provided tests use mocks and don't account for potential hardware-specific issues.
+
+  When testing with real hardware:
+  1. Ensure proper serial port configuration.
+  2. Verify that packets are being sent in the correct format.
+  3. Check for any responses from the display and handle them appropriately.
+  4. Test various display sizes and configurations to ensure compatibility.
+
 ### Directory/File Tree
 
 ```

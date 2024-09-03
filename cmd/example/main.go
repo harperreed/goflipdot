@@ -1,65 +1,108 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"image/color"
+	"image"
 	"log"
 	"os"
+	"time"
 
 	"github.com/harperreed/goflipdot/pkg/goflipdot"
 )
 
+const (
+	signAddress = 1
+	signColumns = 96
+	signRows    = 16
+)
+
 func main() {
-	// Open a serial port (this is just a placeholder, you'd need to use a real serial library)
-	port, err := os.OpenFile("/dev/ttyUSB0", os.O_RDWR, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer port.Close()
+	serialPort := flag.String("port", "/dev/pts/7", "Serial port for the flipdot display")
+	patternNum := flag.Int("pattern", -1, "Pattern number to display (0-5), or -1 for all patterns")
+	flag.Parse()
 
-	// Create a controller
-	ctrl, err := goflipdot.NewController(port)
-	if err != nil {
-		log.Fatal(err)
+	if *serialPort == "" {
+		log.Fatal("Serial port must be specified")
 	}
 
-	// Add a sign
-	if err := ctrl.AddSign("dev", 1, 86, 7, false); err != nil {
-		log.Fatal(err)
-	}
-
-	// Start the test sequence
-	if err := ctrl.StartTestSigns(); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Test sequence started. Press Enter to stop...")
-	fmt.Scanln()
-
-	// Stop the test sequence
-	if err := ctrl.StopTestSigns(); err != nil {
-		log.Fatal(err)
-	}
-
-	// Create a 'checkerboard' image
-	img, err := ctrl.CreateImage("dev")
+	ctrl, err := goflipdot.NewController(*serialPort)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	if err := ctrl.AddSign("dev", signAddress, signColumns, signRows); err != nil {
+		log.Fatal(err)
+	}
+
+	patterns := GetPatterns()
+	patternNames := []string{
+		"1s at row edges",
+		"1s on borders",
+		"Checkerboard",
+		"All pixels on",
+		"Alternating columns",
+		"Large 'X'",
+		"Clear",
+	}
+
+	if *patternNum >= 0 && *patternNum < len(patternNames) {
+		// Display only the specified pattern
+		name := patternNames[*patternNum]
+		patternFunc := patterns[name]
+		displayPattern(ctrl, name, patternFunc)
+	} else if *patternNum == -1 {
+		// Display all patterns
+		for _, name := range patternNames {
+			patternFunc := patterns[name]
+			displayPattern(ctrl, name, patternFunc)
+			time.Sleep(2 * time.Second)
+		}
+	} else {
+		fmt.Println("Invalid pattern number. Use -1 for all patterns or 0-5 for a specific pattern.")
+		os.Exit(1)
+	}
+
+	fmt.Println("Test sequence completed.")
+}
+
+func displayPattern(ctrl *goflipdot.Controller, name string, patternFunc Pattern) {
+	img := patternFunc(signColumns, signRows)
+	printArrayInfo(img, name)
+	err := ctrl.DrawImage(img, "dev")
+	if err != nil {
+		log.Printf("Failed to draw image: %v", err)
+	}
+}
+
+func printArrayInfo(img *image.Gray, name string) {
+	fmt.Printf("\n%s:\n", name)
+	fmt.Printf("Shape: %dx%d\n", img.Bounds().Dx(), img.Bounds().Dy())
+	fmt.Print("First row: ")
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		if img.GrayAt(x, 0).Y > 0 {
+			fmt.Print("1 ")
+		} else {
+			fmt.Print("0 ")
+		}
+	}
+	fmt.Println()
+	fmt.Print("Last row: ")
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		if img.GrayAt(x, img.Bounds().Dy()-1).Y > 0 {
+			fmt.Print("1 ")
+		} else {
+			fmt.Print("0 ")
+		}
+	}
+	fmt.Println()
+	sum := 0
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
-			if (x+y)%2 == 0 {
-				img.Set(x, y, color.White)
+			if img.GrayAt(x, y).Y > 0 {
+				sum++
 			}
 		}
 	}
-
-	// Draw the image
-	if err := ctrl.DrawImage(img, "dev"); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Checkerboard image drawn. Press Enter to exit...")
-	fmt.Scanln()
+	fmt.Printf("Sum of elements: %d\n", sum)
 }

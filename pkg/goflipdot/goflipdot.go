@@ -3,7 +3,6 @@ package goflipdot
 import (
 	"fmt"
 	"image"
-	"io"
 
 	"github.com/harperreed/goflipdot/internal/controller"
 	"github.com/harperreed/goflipdot/internal/sign"
@@ -15,8 +14,8 @@ type Controller struct {
 }
 
 // NewController creates a new Controller
-func NewController(port io.Writer) (*Controller, error) {
-	ctrl, err := controller.NewHanoverController(port)
+func NewController(serialPort string) (*Controller, error) {
+	ctrl, err := controller.NewHanoverController(serialPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create controller: %w", err)
 	}
@@ -26,8 +25,8 @@ func NewController(port io.Writer) (*Controller, error) {
 }
 
 // AddSign adds a new sign to the controller
-func (c *Controller) AddSign(name string, address, width, height int, flip bool) error {
-	s, err := sign.NewHanoverSign(address, width, height, flip)
+func (c *Controller) AddSign(name string, address, width, height int) error {
+	s, err := sign.NewHanoverSign(address, width, height)
 	if err != nil {
 		return fmt.Errorf("failed to create sign: %w", err)
 	}
