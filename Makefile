@@ -24,6 +24,9 @@ clean:
 run-example:
 	go run cmd/example/main.go
 
+run-cli:
+	go run cmd/flipdot-cli/main.go
+
 fmt:
 	go fmt ./...
 

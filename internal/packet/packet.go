@@ -52,9 +52,15 @@ func (p ImagePacket) GetBytes() ([]byte, error) {
 	}
 
 	payload := make([]byte, 3+len(imageBytes)*2)
-	payload[0] = byte(len(imageBytes) & 0xFF)
-	payload[1] = byte(len(imageBytes) >> 8)
-	payload[2] = byte(p.Image.Bounds().Dy()) // Add resolution byte
+	payload[0] = byte(p.Image.Bounds().Dx() & 0xFF)
+	payload[1] = byte(p.Image.Bounds().Dx() >> 8)
+	payload[2] = byte(p.Image.Bounds().Dy() & 0xFF)
+	payload[3] = byte(p.Image.Bounds().Dy() >> 8)
+
+	width := fmt.Sprintf("%04d", p.Image.Bounds().Dx())
+	height := fmt.Sprintf("%04d", p.Image.Bounds().Dy())
+	copy(payload[0:4], width)
+	copy(payload[4:8], height)
 
 	hex.Encode(payload[3:], imageBytes)
 
