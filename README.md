@@ -54,15 +54,64 @@ This will start the test sequence on the connected flipdot sign and draw a check
   - `pkg`: Provides the main public interface for controlling flipdot signs.
   - `test`: Includes unit tests for the different components.
 
-  ## Testing
+## Testing
 
-  While unit tests are provided in the `test/` directory, it's crucial to test the library with actual Hanover flipdot hardware to ensure proper functionality. The provided tests use mocks and don't account for potential hardware-specific issues.
+The `goflipdot` project includes a comprehensive test suite located in the `test/` directory. These tests cover various aspects of the library's functionality, including controller operations, packet handling, and sign management.
 
-  When testing with real hardware:
-  1. Ensure proper serial port configuration.
-  2. Verify that packets are being sent in the correct format.
-  3. Check for any responses from the display and handle them appropriately.
-  4. Test various display sizes and configurations to ensure compatibility.
+### Running Tests
+
+To run the entire test suite, use the following command:
+
+```sh
+go test ./...
+```
+
+For more verbose output, add the `-v` flag:
+
+```sh
+go test -v ./...
+```
+
+### Test Structure
+
+The test suite is organized into three main files:
+
+1. `test/controller_test.go`: Tests for controller functionality
+   - Creating a new controller
+   - Adding signs
+   - Starting and stopping test signs
+   - Drawing images
+   - Error handling for network issues
+
+2. `test/packet_test.go`: Tests for packet handling
+   - TestSignsStartPacket and TestSignsStopPacket
+   - ImagePacket with various image sizes and patterns
+   - Checksum calculation and verification
+
+3. `test/sign_test.go`: Tests for sign-related functionality
+   - Creating signs with different configurations
+   - Creating and validating images
+   - Image flipping
+
+### Test Coverage
+
+To view the test coverage, run:
+
+```sh
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+This will generate an HTML report of the test coverage.
+
+### Hardware Testing
+
+While the provided tests use mocks and simulations, it's crucial to test the library with actual Hanover flipdot hardware to ensure proper functionality. When testing with real hardware:
+
+1. Ensure proper serial port configuration.
+2. Verify that packets are being sent in the correct format.
+3. Check for any responses from the display and handle them appropriately.
+4. Test various display sizes and configurations to ensure compatibility.
 
 ### Directory/File Tree
 
@@ -106,10 +155,10 @@ goflipdot/
 - **pkg/goflipdot/goflipdot.go**
     - Main public interface providing higher-level functions for use by other applications.
 - **test/controller_test.go**
-    - Unit tests for the controller logic.
+    - Comprehensive unit tests for the controller logic, including error scenarios.
 - **test/packet_test.go**
-    - Unit tests for the packet structures and behaviors.
+    - Extensive unit tests for packet structures and behaviors, including various image sizes and patterns.
 - **test/sign_test.go**
-    - Unit tests for the sign-related logic.
+    - Thorough unit tests for sign-related logic, covering different configurations and image manipulations.
 
-We hope this README has provided you with the needed information to get started with our project. Happy coding! 💻
+We hope this README has provided you with the needed information to get started with our project and understand our testing procedures. Happy coding! 💻
