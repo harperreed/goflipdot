@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/harperreed/goflipdot/pkg/goflipdot"
 	"github.com/tarm/serial"
-	"github.com/harperreed/goflipdot/internal"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 
 	config := &serial.Config{
 		Name:        *portName,
-		Baud:        internal.BaudRate,
+		Baud:        goflipdot.BaudRate,
 		ReadTimeout: time.Second * 5,
 		Size:        8,
 		Parity:      serial.ParityNone,
@@ -30,55 +30,33 @@ func main() {
 		fmt.Printf("Opening port %s with config: %+v\n", *portName, config)
 	}
 
-	port, err := serial.OpenPort(config)
+	controller, err := goflipdot.NewController(*portName)
 	if err != nil {
-		log.Fatalf("Failed to open serial port: %v", err)
+		log.Fatalf("Failed to create controller: %v", err)
 	}
-	defer port.Close()
-
-	var packet []byte
 
 	switch *command {
 	case "start_test":
-		packet = internal.FormatPacket(internal.CommandCodes["start_test_signs"], '0', nil)
+		err = controller.StartTestSigns()
 	case "stop_test":
-		packet = internal.FormatPacket(internal.CommandCodes["stop_test_signs"], '0', nil)
+		err = controller.StopTestSigns()
 	case "draw_pattern":
-		imageData := []byte{0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}
-		payload := append([]byte{byte(len(imageData)), 0}, internal.ToAsciiHex(imageData)...)
-		packet = internal.FormatPacket(internal.CommandCodes["write_image"], '1', payload)
+		// Create a simple pattern (you may need to adjust this based on your sign dimensions)
+		img := goflipdot.CreateCheckerboardPattern(86, 7)
+		err = controller.DrawImage(img, "")
 	case "send_byte":
-		packet = []byte{byte(*byteToSend)}
+		// This functionality might not be directly available in the goflipdot package
+		// You may need to implement a custom method or use a different approach
+		log.Println("send_byte command is not supported in this version")
 	default:
 		log.Fatalf("Unknown command: %s", *command)
 	}
 
-	if *verbose {
-		fmt.Printf("Sending packet: %X\n", packet)
-		fmt.Printf("ASCII representation: %s\n", string(packet))
-	}
-	n, err := port.Write(packet)
 	if err != nil {
-		log.Fatalf("Failed to write to serial port: %v", err)
+		log.Fatalf("Failed to execute command: %v", err)
 	}
+
 	if *verbose {
-		fmt.Printf("Sent %d bytes\n", n)
+		fmt.Println("Command completed successfully")
 	}
-
-	// Add a delay to match the 2 Hz refresh rate
-	time.Sleep(500 * time.Millisecond)
-
-	// Try to read any response
-	buf := make([]byte, 128)
-	n, err = port.Read(buf)
-	if err != nil {
-		if *verbose {
-			fmt.Printf("No response received (this may be normal): %v\n", err)
-		}
-	} else {
-		fmt.Printf("Received response: %X\n", buf[:n])
-		fmt.Printf("ASCII representation: %s\n", string(buf[:n]))
-	}
-
-	fmt.Println("Command completed")
 }
