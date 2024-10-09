@@ -1,0 +1,37 @@
+name: Go Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  test:
+    name: Run Go Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'  # You can adjust this to match your project's Go version
+
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
+
+    - name: Run tests
+      run: go test -v ./... -coverprofile=coverage.out -covermode=atomic
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    - name: Run tests with race detector
+      run: go test -race -v ./...
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
